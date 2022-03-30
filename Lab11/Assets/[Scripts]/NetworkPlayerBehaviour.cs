@@ -7,17 +7,32 @@ public class NetworkPlayerBehaviour : NetworkBehaviour
 {
 
     public float speed = 5.0f;
+    public MeshRenderer meshRenderer;
 
     private NetworkVariable<float> verticalPosition = new NetworkVariable<float>();
     private NetworkVariable<float> horizontalPosition = new NetworkVariable<float>();
 
+    private NetworkVariable<Color> materialColor = new NetworkVariable<Color>();
+
     private float localHorizontal;
     private float localVertical;
+    private Color localcolor;
+
+    private void Awake()
+    {
+        materialColor.OnValueChanged += ColorOnChange;
+    }
 
     // Start is called before the first frame update
     void Start()
     {
-        RandomSpawnPosition();
+        meshRenderer = GetComponent<MeshRenderer>();
+        RandomSpawnPositionAndColor();
+
+
+
+        meshRenderer.material.SetColor("_Color", materialColor.Value);
+        
     }
 
     // Update is called once per frame
@@ -39,10 +54,22 @@ public class NetworkPlayerBehaviour : NetworkBehaviour
     {
         transform.position = new Vector3(transform.position.x + horizontalPosition.Value, 
             transform.position.y, transform.position.z + verticalPosition.Value);
+
+        if (meshRenderer.material.GetColor("_Color") != materialColor.Value)
+        {
+            meshRenderer.material.SetColor("_Color", materialColor.Value);
+        }
     }
 
-    public void RandomSpawnPosition()
+    public void RandomSpawnPositionAndColor()
     {
+        var r = Random.Range(0, 1.0f);
+        var g = Random.Range(0, 1.0f);
+        var b = Random.Range(0, 1.0f);
+        var color = new Color(r,g,b);
+        localcolor = color;
+        
+
         var x = Random.Range(-10.0f, 10.0f);
         var z = Random.Range(-10.0f, 10.0f);
         transform.position = new Vector3(x,1.0f,z);
@@ -61,6 +88,11 @@ public class NetworkPlayerBehaviour : NetworkBehaviour
             //update client position on the network
             UpdateClientPositionServerRpc(horizontal, vertical);
         }
+
+        if (localcolor != materialColor.Value)
+        {
+            SetClientColorServerRpc(localcolor);
+        }
     }
 
     [ServerRpc]
@@ -69,5 +101,19 @@ public class NetworkPlayerBehaviour : NetworkBehaviour
         horizontalPosition.Value = horizontal;
         verticalPosition.Value = vertical;
     }
-    
+
+    [ServerRpc]
+    public void SetClientColorServerRpc(Color color)
+    {
+        materialColor.Value = color;
+
+        
+        meshRenderer.material.SetColor("_Color", materialColor.Value);
+        
+    }
+
+    void ColorOnChange(Color oldColor, Color newColor)
+    {
+        GetComponent<MeshRenderer>().material.color = materialColor.Value;
+    }
 }
